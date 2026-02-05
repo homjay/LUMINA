@@ -7,5 +7,4 @@ if [ "$(id -u)" = "0" ]; then
     exec gosu lumina python main.py
 fi
 
-# Fallback: run directly
 exec python main.py
