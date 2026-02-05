@@ -132,7 +132,11 @@ def ensure_config_exists() -> None:
             # Copy example config
             shutil.copy2(example_config_path, user_config_path)
             logger.info(f"✓ Created config from example: {user_config_path}")
-            logger.warning("⚠️  Please review and update data/config.yaml for production!")
+            logger.warning("")
+            logger.warning("⚠️  IMPORTANT: Set required environment variables!")
+            logger.warning("   Create .env file: cp .env.example .env")
+            logger.warning("   Then set: ADMIN_PASSWORD and SECRET_KEY")
+            logger.warning("")
         except Exception as e:
             logger.error(f"Failed to copy example config: {e}")
     else:
@@ -173,7 +177,11 @@ license:
             with open(user_config_path, "w", encoding="utf-8") as f:
                 f.write(default_config)
             logger.info(f"✓ Created default config: {user_config_path}")
-            logger.warning("⚠️  Please review and update data/config.yaml!")
+            logger.warning("")
+            logger.warning("⚠️  IMPORTANT: Set required environment variables!")
+            logger.warning("   Create .env file: cp .env.example .env")
+            logger.warning("   Then set: ADMIN_PASSWORD and SECRET_KEY")
+            logger.warning("")
         except Exception as e:
             logger.error(f"Failed to create default config: {e}")
 
