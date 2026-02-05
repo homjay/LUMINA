@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,8 @@ class MySQLConfig(BaseSettings):
     pool_size: int = 5
     max_overflow: int = 10
 
+    model_config = SettingsConfigDict(extra='ignore')
+
 
 class StorageConfig(BaseModel):
     """Storage configuration."""
@@ -52,6 +54,8 @@ class SecurityConfig(BaseSettings):
     secret_key: str = Field(default="your-secret-key-change-this", env="SECRET_KEY")
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
+
+    model_config = SettingsConfigDict(extra='ignore')  # Ignore extra fields from YAML
 
 
 class RateLimitConfig(BaseModel):
@@ -201,7 +205,41 @@ def get_settings() -> Settings:
 
     # Load configuration
     config_data = load_config()
-    return Settings(**config_data)
+
+    # Remove sensitive fields from config data to force reading from env vars
+    # This ensures passwords/secrets come from environment, not YAML files
+    if "security" in config_data:
+        config_data["security"].pop("admin_password", None)
+        config_data["security"].pop("secret_key", None)
+
+    # Create settings
+    try:
+        settings = Settings(**config_data)
+    except ValidationError as e:
+        # Check if missing required environment variables
+        errors = e.errors()
+        missing_env_vars = []
+        for error in errors:
+            if error['type'] == 'missing':
+                field = error['loc'][0] if error['loc'] else 'unknown'
+                if field in ['admin_password', 'secret_key']:
+                    env_var = field.upper()
+                    missing_env_vars.append(env_var)
+
+        if missing_env_vars:
+            logger.error("❌ Missing required environment variables!")
+            logger.error(f"   Please set in .env file or environment:")
+            for var in missing_env_vars:
+                logger.error(f"   - {var}")
+            logger.error("")
+            logger.error("   Example .env file:")
+            logger.error("   ADMIN_PASSWORD=your_secure_password")
+            logger.error("   SECRET_KEY=your_secret_key_min_32_chars")
+            raise
+
+        raise
+
+    return settings
 
 
 # Global settings instance
