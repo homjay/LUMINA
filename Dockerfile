@@ -15,8 +15,11 @@ RUN apt-get update && \
         gcc \
         default-libmysqlclient-dev \
         pkg-config \
-        su-exec \
-    && rm -rf /var/lib/apt/lists/*
+        curl \
+    && rm -rf /var/lib/apt/lists/* && \
+    curl -fsSL https://github.com/tianon/gosu/releases/download/1.17/gosu-amd64 -o /usr/local/bin/gosu && \
+    chmod +x /usr/local/bin/gosu && \
+    gosu --version
 
 # Copy requirements first for better caching
 COPY requirements.txt .
