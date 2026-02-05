@@ -3,9 +3,7 @@ set -e
 
 # Fix permissions for data and logs directories
 if [ "$(id -u)" = "0" ]; then
-    echo "Fixing permissions for lumina user..."
-    chown -R lumina:lumina /app/data /app/logs
-    echo "Starting as lumina user..."
+    chown -R lumina:lumina /app/data /app/logs 2>/dev/null || true
     exec gosu lumina python main.py
 fi
 
