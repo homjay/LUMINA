@@ -1,6 +1,7 @@
 """Authentication service for admin access."""
 from typing import Optional
 import bcrypt
+import hashlib
 
 from app.core.config import settings
 from app.core.security import create_access_token
@@ -11,9 +12,11 @@ class AuthService:
 
     def __init__(self):
         """Initialize auth service."""
-        # In production, this should be replaced with database storage
-        # Hash password during initialization
-        password_bytes = settings.security.admin_password.encode('utf-8')[:72]
+        # Store: bcrypt(SHA-256(password)) for double hashing
+        # Client sends: SHA-256(password)
+        # Server verifies: bcrypt(client_hash) == stored_hash
+        password_hash = hashlib.sha256(settings.security.admin_password.encode()).hexdigest()
+        password_bytes = password_hash.encode('utf-8')[:72]
         salt = bcrypt.gensalt()
         self._hashed_password = bcrypt.hashpw(password_bytes, salt)
 
@@ -22,7 +25,7 @@ class AuthService:
 
         Args:
             username: Admin username
-            password: Admin password
+            password: Password hash from client (SHA-256)
 
         Returns:
             Access token if authentication successful, None otherwise
@@ -30,7 +33,7 @@ class AuthService:
         if username != settings.security.admin_username:
             return None
 
-        # Verify password
+        # Verify password hash (client already sent SHA-256 hash)
         password_bytes = password.encode('utf-8')[:72]
         if not bcrypt.checkpw(password_bytes, self._hashed_password):
             return None
