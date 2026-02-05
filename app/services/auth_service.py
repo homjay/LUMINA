@@ -1,7 +1,7 @@
 """Authentication service for admin access."""
 from typing import Optional
-import bcrypt
 import hashlib
+import hmac
 import os
 
 from app.core.config import settings
@@ -10,12 +10,7 @@ from app.core.security import create_access_token
 
 def hmac_compare(a: str, b: str) -> bool:
     """Constant-time string comparison to prevent timing attacks."""
-    if len(a) != len(b):
-        return False
-    result = 0
-    for x, y in zip(a, b):
-        result |= ord(x) ^ ord(y)
-    return result == 0
+    return hmac.compare_digest(a.encode(), b.encode())
 
 
 class AuthService:
@@ -23,21 +18,17 @@ class AuthService:
 
     def __init__(self):
         """Initialize auth service."""
-        # Store: bcrypt(SHA-256(password)) for double hashing
-        # Client sends: SHA-256(password)
-        # Server verifies: bcrypt(client_hash) == stored_hash
+        # Double hashing scheme:
+        # 1. Client: SHA-256(password) -> sends hash to server
+        # 2. Server: HMAC-SHA256(SECRET_KEY, client_hash) -> compare with stored
 
-        # Use fixed salt for password (derived from SECRET_KEY)
-        # This ensures the hash is consistent across restarts
-        secret = settings.security.secret_key.encode('utf-8')[:32]
-        salt = hashlib.sha256(secret).hexdigest()[:22]  # bcrypt salt is 22 chars
-
-        # Double hash: SHA-256 first, then bcrypt
+        # This is deterministic and secure for verifying client-sent hashes
         password_hash = hashlib.sha256(settings.security.admin_password.encode()).hexdigest()
-        password_bytes = password_hash.encode('utf-8')[:72]
-
-        # Manually create bcrypt hash with our salt
-        self._hashed_password = bcrypt.hashpw(password_bytes, salt.encode('utf-8'))
+        self._hashed_password = hmac.new(
+            settings.security.secret_key.encode(),
+            password_hash.encode(),
+            hashlib.sha256
+        ).hexdigest()
 
         # Load API keys from database
         self.api_keys = self._load_api_keys()
@@ -91,8 +82,14 @@ class AuthService:
             return None
 
         # Verify password hash (client already sent SHA-256 hash)
-        password_bytes = password.encode('utf-8')[:72]
-        if not bcrypt.checkpw(password_bytes, self._hashed_password):
+        # Compute HMAC of received hash and compare with stored
+        computed_hash = hmac.new(
+            settings.security.secret_key.encode(),
+            password.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac_compare(computed_hash, self._hashed_password):
             return None
 
         # Create access token
