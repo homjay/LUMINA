@@ -106,8 +106,8 @@ class LUMINAClient:
 def main():
     parser = argparse.ArgumentParser(description="LUMINA License Management CLI")
     parser.add_argument("--url", default="http://localhost:18000/api/v1", help="API base URL")
-    parser.add_argument("--username", default="admin", help="Admin username")
-    parser.add_argument("--password", help="Admin password (or use LUMINA_PASSWORD env var)")
+    parser.add_argument("--username", help="Admin username (default: from ADMIN_USERNAME env var or 'admin')")
+    parser.add_argument("--password", help="Admin password (default: from ADMIN_PASSWORD env var)")
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
@@ -145,19 +145,21 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    # Get password
+    # Get credentials from environment
     import os
-    password = args.password or os.environ.get("LUMINA_PASSWORD")
+    username = args.username or os.environ.get("ADMIN_USERNAME", "admin")
+    password = args.password or os.environ.get("ADMIN_PASSWORD")
+
     if not password:
         password = input("Enter admin password: ")
 
     # Create client and login
     client = LUMINAClient(args.url)
-    if not client.login(args.username, password):
+    if not client.login(username, password):
         print("✗ Login failed: Invalid username or password")
         sys.exit(1)
 
-    print(f"✓ Logged in as {args.username}")
+    print(f"✓ Logged in as {username}")
 
     # Execute command
     try:

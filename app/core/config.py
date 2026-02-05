@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 import yaml
 from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +23,14 @@ class AppConfig(BaseModel):
     port: int = 8000
 
 
-class MySQLConfig(BaseModel):
+class MySQLConfig(BaseSettings):
     """MySQL database configuration."""
 
-    host: str = "localhost"
-    port: int = 3306
-    database: str = "license_server"
-    user: str = "root"
-    password: str = ""
+    host: str = Field(default="localhost", env="MYSQL_HOST")
+    port: int = Field(default=3306, env="MYSQL_PORT")
+    database: str = Field(default="license_server", env="MYSQL_DATABASE")
+    user: str = Field(default="root", env="MYSQL_USER")
+    password: str = Field(default="", env="MYSQL_PASSWORD")
     pool_size: int = 5
     max_overflow: int = 10
 
@@ -44,12 +44,12 @@ class StorageConfig(BaseModel):
     mysql: MySQLConfig = Field(default_factory=MySQLConfig)
 
 
-class SecurityConfig(BaseModel):
+class SecurityConfig(BaseSettings):
     """Security configuration."""
 
-    admin_username: str = "admin"
-    admin_password: str = "admin123"
-    secret_key: str = "your-secret-key-change-this"
+    admin_username: str = Field(default="admin", env="ADMIN_USERNAME")
+    admin_password: str = Field(default="admin123", env="ADMIN_PASSWORD")
+    secret_key: str = Field(default="your-secret-key-change-this", env="SECRET_KEY")
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
