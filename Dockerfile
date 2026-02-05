@@ -27,8 +27,16 @@ RUN pip install --no-cache-dir uv && \
 # Copy application code
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p data logs
+# Create non-root user
+RUN groupadd -r lumina && \
+    useradd -r -g lumina -u 1000 lumina
+
+# Create necessary directories and set permissions
+RUN mkdir -p data logs && \
+    chown -R lumina:lumina /app
+
+# Switch to non-root user
+USER lumina
 
 # Expose port
 EXPOSE 8000
