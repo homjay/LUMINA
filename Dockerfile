@@ -15,6 +15,7 @@ RUN apt-get update && \
         gcc \
         default-libmysqlclient-dev \
         pkg-config \
+        su-exec \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -27,16 +28,16 @@ RUN pip install --no-cache-dir uv && \
 # Copy application code
 COPY . .
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Create non-root user
 RUN groupadd -r lumina && \
     useradd -r -g lumina -u 1000 lumina
 
-# Create necessary directories and set permissions
-RUN mkdir -p data logs && \
-    chown -R lumina:lumina /app
-
-# Switch to non-root user
-USER lumina
+# Create necessary directories
+RUN mkdir -p data logs
 
 # Expose port
 EXPOSE 8000
@@ -45,5 +46,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/ping')"
 
-# Run the application
-CMD ["python", "main.py"]
+# Run as root to fix permissions, then drop to lumina user
+ENTRYPOINT ["/entrypoint.sh"]
