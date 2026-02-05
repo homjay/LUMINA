@@ -27,6 +27,7 @@ wheels/
 data/*.json
 data/*.db
 data/*.sqlite
+data/config.yaml  # User config, not in git
 logs/*.log
 
 # IDE
