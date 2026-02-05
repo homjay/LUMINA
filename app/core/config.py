@@ -94,10 +94,12 @@ class Settings(BaseSettings):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     license: LicenseConfig = Field(default_factory=LicenseConfig)
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        env_nested_delimiter = "__"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_nested_delimiter="__",
+        extra='ignore'  # Ignore extra fields from YAML (sensitive fields come from env)
+    )
 
 
 def ensure_config_exists() -> None:
@@ -200,6 +202,38 @@ def load_config(config_path: str = "data/config.yaml") -> Dict[str, Any]:
 
 def get_settings() -> Settings:
     """Get application settings."""
+    # Check required environment variables first
+    required_vars = {
+        'ADMIN_PASSWORD': 'Admin password',
+        'SECRET_KEY': 'Secret key (min 32 characters)'
+    }
+
+    missing_vars = []
+    for var, description in required_vars.items():
+        if not os.environ.get(var):
+            missing_vars.append((var, description))
+
+    if missing_vars:
+        logger.error("=" * 60)
+        logger.error("❌ Missing required environment variables!")
+        logger.error("=" * 60)
+        logger.error("")
+        logger.error("Please set the following environment variables:")
+        logger.error("")
+        for var, desc in missing_vars:
+            logger.error(f"  • {var}: {desc}")
+        logger.error("")
+        logger.error("Create a .env file:")
+        logger.error("  ADMIN_PASSWORD=your_secure_password")
+        logger.error("  SECRET_KEY=your_secret_key_min_32_chars")
+        logger.error("")
+        logger.error("Or use .env.example as template:")
+        logger.error("  cp .env.example .env")
+        logger.error("  # Then edit .env with your values")
+        logger.error("=" * 60)
+        import sys
+        sys.exit(1)
+
     # Ensure config file exists before loading
     ensure_config_exists()
 
@@ -212,34 +246,7 @@ def get_settings() -> Settings:
         config_data["security"].pop("admin_password", None)
         config_data["security"].pop("secret_key", None)
 
-    # Create settings
-    try:
-        settings = Settings(**config_data)
-    except ValidationError as e:
-        # Check if missing required environment variables
-        errors = e.errors()
-        missing_env_vars = []
-        for error in errors:
-            if error['type'] == 'missing':
-                field = error['loc'][0] if error['loc'] else 'unknown'
-                if field in ['admin_password', 'secret_key']:
-                    env_var = field.upper()
-                    missing_env_vars.append(env_var)
-
-        if missing_env_vars:
-            logger.error("❌ Missing required environment variables!")
-            logger.error(f"   Please set in .env file or environment:")
-            for var in missing_env_vars:
-                logger.error(f"   - {var}")
-            logger.error("")
-            logger.error("   Example .env file:")
-            logger.error("   ADMIN_PASSWORD=your_secure_password")
-            logger.error("   SECRET_KEY=your_secret_key_min_32_chars")
-            raise
-
-        raise
-
-    return settings
+    return Settings(**config_data)
 
 
 # Global settings instance
