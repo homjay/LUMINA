@@ -1,0 +1,53 @@
+# LUMINA Configuration
+# License Unified Management & Identity Network Authorization
+
+app:
+  name: "LUMINA"
+  version: "1.0.0"
+  debug: true
+  host: "0.0.0.0"
+  port: 18000
+
+# Storage configuration (json, sqlite, mysql)
+storage:
+  type: json # Options: json, sqlite, mysql
+  json:
+    path: "data/licenses.json"
+  sqlite:
+    path: "data/licenses.db"
+  mysql:
+    host: "localhost"
+    port: 3306
+    database: "license_server"
+    user: "root"
+    password: ""
+    pool_size: 5
+    max_overflow: 10
+
+# Security settings
+security:
+  admin_username: "admin"
+  admin_password: "admin123" # Change this in production!
+  secret_key: "your-secret-key-change-this-in-production"
+  algorithm: "HS256"
+  access_token_expire_minutes: 60
+
+# Rate limiting
+rate_limit:
+  enabled: true
+  requests_per_minute: 60
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/license_server.log"
+  max_bytes: 10485760 # 10MB
+  backup_count: 5
+
+# License settings
+license:
+  default_max_activations: 1
+  default_expiry_days: 365
+  key_length: 16
+  key_prefix: "LS"

@@ -1,0 +1,630 @@
+openapi: 3.0.3
+info:
+  title: License Server API
+  description: |
+    License Authentication Server API - For software license verification and management
+
+    **Key Features**:
+    - License verification
+    - License management (authentication required)
+    - Health check
+
+    **Base URL**: `https://your-server.com/api/v1`
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development environment
+  - url: https://license.example.com/api/v1
+    description: Production environment
+
+tags:
+  - name: License
+    description: License verification endpoints (for client use)
+  - name: Admin
+    description: Management endpoints (authentication required)
+  - name: Health
+    description: Health check endpoints
+
+paths:
+  /license/verify:
+    post:
+      tags:
+        - License
+      summary: Verify License
+      description: |
+        Client verifies whether a license key is valid through this endpoint.
+
+        **Verification Process**:
+        1. Check if the license exists
+        2. Check license status (active/disabled)
+        3. Check if the license has expired
+        4. Verify machine code if machine binding is enabled
+        5. Verify client IP if IP whitelist is set
+        6. Check if activation limit is exceeded
+        7. Record or update activation information
+      operationId: verifyLicense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LicenseVerifyRequest'
+            examples:
+              valid_license:
+                summary: Valid license verification
+                value:
+                  license_key: "LS-2026-CHSVYS8PAB9LT53L"
+                  machine_code: "A1B2C3D4E5F67890123456789012345AB"
+              without_machine_code:
+                summary: Without machine code (when binding is not enabled)
+                value:
+                  license_key: "LS-2026-CHSVYS8PAB9LT53L"
+              with_ip:
+                summary: Specify IP address
+                value:
+                  license_key: "LS-2026-CHSVYS8PAB9LT53L"
+                  machine_code: "A1B2C3D4E5F67890123456789012345AB"
+                  ip: "192.168.1.100"
+      responses:
+        '200':
+          description: Verification successful (returns 200 regardless of license validity)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseVerifyResponse'
+              examples:
+                valid:
+                  summary: License is valid
+                  value:
+                    valid: true
+                    message: "License verified successfully"
+                    license:
+                      key: "LS-2026-CHSVYS8PAB9LT53L"
+                      product: "MyApp"
+                      version: "1.0.0"
+                      customer: "John Smith"
+                      email: "john.smith@example.com"
+                      max_activations: 2
+                      machine_binding: true
+                      ip_whitelist: []
+                      expiry_date: "2026-12-31T23:59:59Z"
+                      status: "active"
+                      created_at: "2026-01-01T00:00:00Z"
+                      updated_at: "2026-01-01T00:00:00Z"
+                      activations: []
+                    remaining_activations: 2
+                    expiry_date: "2026-12-31T23:59:59Z"
+                invalid_key:
+                  summary: Invalid license key
+                  value:
+                    valid: false
+                    message: "Invalid license key"
+                    license: null
+                    remaining_activations: null
+                    expiry_date: null
+                expired:
+                  summary: License has expired
+                  value:
+                    valid: false
+                    message: "License has expired"
+                    license: null
+                    remaining_activations: null
+                    expiry_date: null
+                max_activations:
+                  summary: Maximum activations reached
+                  value:
+                    valid: false
+                    message: "Maximum activations reached"
+                    license: null
+                    remaining_activations: null
+                    expiry_date: null
+                not_authorized:
+                  summary: IP not authorized
+                  value:
+                    valid: false
+                    message: "IP address not authorized"
+                    license: null
+                    remaining_activations: null
+                    expiry_date: null
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /license/check/{key}:
+    get:
+      tags:
+        - License
+      summary: Check License Status (Lightweight)
+      description: |
+        Quickly check if a license exists and is activated.
+
+        This endpoint does not return complete license information, only basic status.
+        Suitable for simple status check scenarios.
+      operationId: checkLicense
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: License key
+          schema:
+            type: string
+          example: "LS-2026-CHSVYS8PAB9LT53L"
+      responses:
+        '200':
+          description: License exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exists:
+                    type: boolean
+                    example: true
+                  active:
+                    type: boolean
+                    example: true
+                  product:
+                    type: string
+                    example: "MyApp"
+                  customer:
+                    type: string
+                    example: "John Smith"
+        '404':
+          description: License does not exist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exists:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "License not found"
+
+  /admin/login:
+    post:
+      tags:
+        - Admin
+      summary: Admin Login
+      description: |
+        Login with admin username and password to obtain JWT access token.
+
+        **Note**: This token is only for management endpoints, license verification does not require this token.
+      operationId: adminLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLogin'
+            example:
+              username: "admin"
+              password: "admin123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminToken'
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                token_type: "bearer"
+        '401':
+          description: Invalid username or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/license:
+    post:
+      tags:
+        - Admin
+      summary: Create License
+      description: Create a new license. Admin authentication required.
+      operationId: createLicense
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LicenseCreate'
+            example:
+              product: "MyApp"
+              customer: "John Smith"
+              email: "john.smith@example.com"
+              max_activations: 2
+              machine_binding: true
+              expiry_date: "2026-12-31T23:59:59Z"
+      responses:
+        '200':
+          description: Created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/License'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/license/{key}:
+    get:
+      tags:
+        - Admin
+      summary: Get License Details
+      description: Get detailed license information by key. Admin authentication required.
+      operationId: getLicense
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/License'
+        '404':
+          description: License does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/licenses:
+    get:
+      tags:
+        - Admin
+      summary: Get All Licenses
+      description: Get a list of all licenses in the system. Admin authentication required.
+      operationId: getAllLicenses
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/License'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health Check
+      description: Check if the service is running normally
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /health/ping:
+    get:
+      tags:
+        - Health
+      summary: Ping
+      description: Simple ping endpoint for quick service availability check
+      operationId: ping
+      responses:
+        '200':
+          description: Pong
+          content:
+            application/json:
+              example:
+                ping: "pong"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT access token, obtained through `/admin/login` endpoint.
+
+        Format: `Authorization: Bearer <token>`
+
+  schemas:
+    LicenseVerifyRequest:
+      type: object
+      required:
+        - license_key
+      properties:
+        license_key:
+          type: string
+          description: License key
+          example: "LS-2026-CHSVYS8PAB9LT53L"
+          pattern: '^LS-\\d{4}-[A-Z0-9]{16}$'
+        machine_code:
+          type: string
+          description: |
+            Machine code (32-character uppercase hexadecimal string)
+
+            Required if machine binding is enabled for the license.
+          example: "A1B2C3D4E5F67890123456789012345AB"
+          pattern: '^[A-Z0-9]{32}$'
+          maxLength: 32
+        ip:
+          type: string
+          description: Client IP address (optional, server will auto-detect)
+          example: "192.168.1.100"
+          format: ipv4
+
+    LicenseVerifyResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Whether the license is valid
+        message:
+          type: string
+          description: Verification result message
+        license:
+          $ref: '#/components/schemas/License'
+          description: License details (only returned when valid=true)
+        remaining_activations:
+          type: integer
+          description: Remaining activation count (only returned when valid=true)
+          nullable: true
+        expiry_date:
+          type: string
+          format: date-time
+          description: Expiration date (only returned when valid=true)
+          nullable: true
+
+    License:
+      type: object
+      properties:
+        key:
+          type: string
+          description: License key
+          example: "LS-2026-CHSVYS8PAB9LT53L"
+        product:
+          type: string
+          description: Product name
+          example: "MyApp"
+        version:
+          type: string
+          description: Product version
+          example: "1.0.0"
+        customer:
+          type: string
+          description: Customer name
+          example: "John Smith"
+        email:
+          type: string
+          description: Customer email
+          example: "john.smith@example.com"
+          nullable: true
+        max_activations:
+          type: integer
+          description: Maximum number of activations
+          example: 2
+          minimum: 1
+        machine_binding:
+          type: boolean
+          description: Whether machine binding is enabled
+          example: true
+        ip_whitelist:
+          type: array
+          description: IP whitelist
+          items:
+            type: string
+            format: ipv4
+          example: ["192.168.1.100", "192.168.1.101"]
+        expiry_date:
+          type: string
+          format: date-time
+          description: Expiration date (null means never expires)
+          example: "2026-12-31T23:59:59Z"
+          nullable: true
+        status:
+          type: string
+          description: License status
+          enum: [active, disabled, expired]
+          example: "active"
+        created_at:
+          type: string
+          format: date-time
+          description: Creation time
+          example: "2026-01-01T00:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Update time
+          example: "2026-01-01T00:00:00Z"
+        activations:
+          type: array
+          description: List of activation records
+          items:
+            $ref: '#/components/schemas/Activation'
+
+    Activation:
+      type: object
+      properties:
+        machine_code:
+          type: string
+          description: Machine code
+          example: "A1B2C3D4E5F67890123456789012345AB"
+          nullable: true
+        ip:
+          type: string
+          description: IP address
+          example: "192.168.1.100"
+          format: ipv4
+          nullable: true
+        activated_at:
+          type: string
+          format: date-time
+          description: Activation time
+          example: "2026-01-01T00:00:00Z"
+        last_verified:
+          type: string
+          format: date-time
+          description: Last verification time
+          example: "2026-01-01T12:00:00Z"
+          nullable: true
+        verification_count:
+          type: integer
+          description: Verification count
+          example: 5
+          minimum: 0
+
+    LicenseCreate:
+      type: object
+      required:
+        - product
+        - customer
+      properties:
+        key:
+          type: string
+          description: |
+            License key (optional, auto-generated if not provided)
+
+            Format: LS-YYYY-XXXXXXXXXXXXXXX
+          example: "LS-2026-CUSTOMKEY123456"
+          pattern: '^LS-\\d{4}-[A-Z0-9]{16}$'
+        product:
+          type: string
+          description: Product name
+          example: "MyApp"
+        version:
+          type: string
+          description: Product version
+          example: "1.0.0"
+          default: "1.0.0"
+        customer:
+          type: string
+          description: Customer name
+          example: "John Smith"
+        email:
+          type: string
+          description: Customer email
+          example: "john.smith@example.com"
+          format: email
+        max_activations:
+          type: integer
+          description: Maximum number of activations
+          example: 2
+          default: 1
+          minimum: 1
+        machine_binding:
+          type: boolean
+          description: Whether machine binding is enabled
+          example: true
+          default: true
+        ip_whitelist:
+          type: array
+          description: IP whitelist
+          items:
+            type: string
+            format: ipv4
+          example: ["192.168.1.100", "192.168.1.101"]
+        expiry_date:
+          type: string
+          format: date-time
+          description: Expiration date (null means never expires)
+          example: "2026-12-31T23:59:59Z"
+          nullable: true
+        status:
+          type: string
+          description: License status
+          enum: [active, disabled, expired]
+          example: "active"
+          default: "active"
+
+    AdminLogin:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Admin username
+          example: "admin"
+        password:
+          type: string
+          description: Admin password
+          example: "admin123"
+          format: password
+
+    AdminToken:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          description: Token type
+          example: "bearer"
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "healthy"
+        version:
+          type: string
+          example: "1.0.0"
+        storage_type:
+          type: string
+          description: Storage type (json only)
+          enum: [json]
+          example: "json"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-01-01T12:00:00Z"
+
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Error details
+          example: "Invalid username or password"
+        error:
+          type: string
+          description: Error type
+          example: "Unauthorized"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-01-01T12:00:00Z"

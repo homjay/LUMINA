@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  lumina:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lumina
+    ports:
+      - "18001:8000"
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - lumina-network
+
+  # Optional: MySQL database (commented out - using JSON storage by default)
+  # mysql:
+  #   image: mysql:8.0
+  #   container_name: lumina-mysql
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: rootpassword
+  #     MYSQL_DATABASE: lumina_server
+  #     MYSQL_USER: lumina_user
+  #     MYSQL_PASSWORD: lumina_password
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysql-data:/var/lib/mysql
+  #   networks:
+  #     - lumina-network
+  #   command: --default-authentication-plugin=mysql_native_password
+
+  # Optional: phpMyAdmin for database management (commented out)
+  # phpmyadmin:
+  #   image: phpmyadmin/phpmyadmin
+  #   container_name: lumina-phpmyadmin
+  #   environment:
+  #     PMA_HOST: mysql
+  #     PMA_PORT: 3306
+  #     PMA_USER: root
+  #     PMA_PASSWORD: rootpassword
+  #   ports:
+  #     - "8080:80"
+  #   depends_on:
+  #     - mysql
+  #   networks:
+  #     - lumina-network
+
+# volumes:
+#   mysql-data:
+
+networks:
+  lumina-network:
+    driver: bridge
