@@ -2,6 +2,9 @@
 # License Unified Management & Identity Network Authorization
 FROM python:3.11-slim
 
+# Build argument for user ID (defaults to 1000)
+ARG UID=1000
+
 # Set working directory
 WORKDIR /app
 
@@ -35,9 +38,9 @@ COPY . .
 COPY docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Create non-root user
+# Create non-root user with specified UID
 RUN groupadd -r lumina && \
-    useradd -r -g lumina -u 1000 lumina
+    useradd -r -g lumina -u ${UID} lumina
 
 # Create necessary directories
 RUN mkdir -p data logs

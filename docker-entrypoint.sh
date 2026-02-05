@@ -7,4 +7,5 @@ if [ "$(id -u)" = "0" ]; then
     exec gosu lumina python main.py
 fi
 
+# Running as non-root user
 exec python main.py
