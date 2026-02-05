@@ -5,7 +5,9 @@ All operations go through the authenticated API.
 """
 import argparse
 import sys
+import hashlib
 import requests
+import os
 
 
 class LUMINAClient:
@@ -15,11 +17,18 @@ class LUMINAClient:
         self.base_url = base_url
         self.token = None
 
+    def hash_password(self, password: str) -> str:
+        """Hash password before sending (SHA-256)."""
+        return hashlib.sha256(password.encode()).hexdigest()
+
     def login(self, username, password):
-        """Login and get access token."""
+        """Login and get access token - sends password hash."""
+        # Hash password before sending
+        password_hash = self.hash_password(password)
+
         response = requests.post(
             f"{self.base_url}/admin/login",
-            json={"username": username, "password": password}
+            json={"username": username, "password": password_hash}  # Send hash
         )
         if response.status_code == 200:
             self.token = response.json()["access_token"]
@@ -106,8 +115,8 @@ class LUMINAClient:
 def main():
     parser = argparse.ArgumentParser(description="LUMINA License Management CLI")
     parser.add_argument("--url", default="http://localhost:18000/api/v1", help="API base URL")
-    parser.add_argument("--username", help="Admin username (default: from ADMIN_USERNAME env var or 'admin')")
-    parser.add_argument("--password", help="Admin password (default: from ADMIN_PASSWORD env var)")
+    parser.add_argument("-u", "--username", help="Admin username (default: from ADMIN_USERNAME env var or 'admin')")
+    parser.add_argument("-p", "--password", help="Admin password (default: from ADMIN_PASSWORD env var)")
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
@@ -145,21 +154,24 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    # Get credentials from environment
+    # Get credentials from environment or arguments
     import os
     username = args.username or os.environ.get("ADMIN_USERNAME", "admin")
     password = args.password or os.environ.get("ADMIN_PASSWORD")
 
     if not password:
-        password = input("Enter admin password: ")
+        print("✗ Error: ADMIN_PASSWORD not set")
+        print("  Set it via:")
+        print("    - Environment variable: export ADMIN_PASSWORD=xxx")
+        print("    - Command line argument: python cli.py -p xxx")
+        print("    - .env file: ADMIN_PASSWORD=xxx")
+        sys.exit(1)
 
     # Create client and login
     client = LUMINAClient(args.url)
     if not client.login(username, password):
         print("✗ Login failed: Invalid username or password")
         sys.exit(1)
-
-    print(f"✓ Logged in as {username}")
 
     # Execute command
     try:
