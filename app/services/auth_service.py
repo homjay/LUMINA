@@ -39,8 +39,43 @@ class AuthService:
         # Manually create bcrypt hash with our salt
         self._hashed_password = bcrypt.hashpw(password_bytes, salt.encode('utf-8'))
 
-        # Load API key if configured (for long-term access)
-        self.api_key = os.environ.get("API_KEY")
+        # Load API keys from database
+        self.api_keys = self._load_api_keys()
+
+    def _load_api_keys(self):
+        """Load API keys from storage."""
+        try:
+            if settings.storage.type == "sqlite":
+                import sqlite3
+                db_path = settings.storage.sqlite_path
+                if os.path.exists(db_path):
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    # Create table if not exists
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS api_keys (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            key TEXT UNIQUE NOT NULL,
+                            name TEXT,
+                            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                            expires_at TEXT,
+                            is_active BOOLEAN DEFAULT 1
+                        )
+                    """)
+                    conn.commit()
+                    # Load active non-expired keys
+                    cursor.execute("""
+                        SELECT key FROM api_keys
+                        WHERE is_active = 1
+                        AND (expires_at IS NULL OR datetime(expires_at) > datetime('now')
+                        """)
+                    return {row[0] for row in cursor.fetchall()}
+        except Exception as e:
+            print(f"Warning: Failed to load API keys from database: {e}")
+
+        # Fallback to environment variable
+        env_key = os.environ.get("API_KEY")
+        return {env_key} if env_key else set()
 
     async def authenticate(self, username: str, password: str) -> Optional[str]:
         """Authenticate admin user and return token.
@@ -76,10 +111,14 @@ class AuthService:
         Returns:
             True if API key is valid, False otherwise
         """
-        if not self.api_key:
+        if not self.api_keys:
             return False
-        # Simple constant-time comparison to prevent timing attacks
-        return hmac_compare(api_key, self.api_key)
+
+        # Constant-time comparison with all stored keys
+        for stored_key in self.api_keys:
+            if hmac_compare(api_key, stored_key):
+                return True
+        return False
 
     async def verify_token(self, token: str) -> bool:
         """Verify an access token.

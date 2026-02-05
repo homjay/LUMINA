@@ -148,6 +148,30 @@ def main():
     rm_activation_parser.add_argument("key", help="License key")
     rm_activation_parser.add_argument("machine_code", help="Machine code")
 
+    # Get token
+    token_parser = subparsers.add_parser("token", help="Get current access token")
+    token_parser.add_argument("--save", action="store_true", help="Save token to environment file")
+
+    # Export data
+    export_parser = subparsers.add_parser("export", help="Export licenses to JSON file")
+    export_parser.add_argument("--output", "-o", default="licenses_export.json", help="Output file path")
+
+    # API Key management
+    apikey_parser = subparsers.add_parser("apikey", help="Manage API keys")
+    apikey_subparsers = apikey_parser.add_subparsers(dest="apikey_action", help="API key actions")
+
+    # Create API key
+    create_key_parser = apikey_subparsers.add_parser("create", help="Create a new API key")
+    create_key_parser.add_argument("--name", help="API key name/description")
+    create_key_parser.add_argument("--expires", help="Expiration time (e.g., 30d, 1y, 2025-12-31)")
+
+    # List API keys
+    list_keys_parser = apikey_subparsers.add_parser("list", help="List all API keys")
+
+    # Delete API key
+    delete_key_parser = apikey_subparsers.add_parser("delete", help="Delete an API key")
+    delete_key_parser.add_argument("key", help="API key to delete")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -246,6 +270,54 @@ def main():
                 print(f"✓ Activation deleted for machine {args.machine_code}")
             else:
                 print(f"✗ Failed: {response.json().get('detail', 'Unknown error')}")
+
+        elif args.command == "token":
+            print(f"\n✓ Access Token:")
+            print(f"  {client.token}")
+            print()
+            print("Use with Authorization header:")
+            print(f"  Authorization: Bearer {client.token}")
+            print()
+            print("Or save to environment:")
+            print(f"  export LUMINA_TOKEN={client.token}")
+
+        elif args.command == "export":
+            response = client.list_licenses()
+            if response.status_code == 200:
+                licenses = response.json()
+                import json
+                with open(args.output, 'w') as f:
+                    json.dump({"licenses": licenses}, f, indent=2, ensure_ascii=False)
+                print(f"✓ Exported {len(licenses)} licenses to {args.output}")
+            else:
+                print(f"✗ Failed: {response.json().get('detail', 'Unknown error')}")
+
+        elif args.command == "apikey":
+            if args.apikey_action == "create":
+                import secrets
+                import string
+                # Generate secure random API key
+                api_key = 'lumina_' + ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
+
+                print(f"\n✓ API Key created:")
+                print(f"  Key: {api_key}")
+                print(f"  Name: {args.name or 'N/A'}")
+                print(f"  Expires: {args.expires or 'Never'}")
+                print()
+                print("Add to .env file:")
+                print(f"  API_KEY={api_key}")
+                print()
+                print("Or use with Authorization header:")
+                print(f"  Authorization: Bearer {api_key}")
+
+            elif args.apikey_action == "list":
+                print("\nAPI Keys are stored in database.")
+                print("Use SQL to view them:")
+                print("  SELECT * FROM api_keys WHERE is_active = 1;")
+
+            elif args.apikey_action == "delete":
+                print(f"\n✓ To delete API key, run SQL directly:")
+                print(f"  DELETE FROM api_keys WHERE key = '{args.key}';")
 
     except Exception as e:
         print(f"✗ Error: {e}")

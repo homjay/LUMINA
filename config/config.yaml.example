@@ -10,7 +10,7 @@ app:
 
 # Storage configuration
 storage:
-  type: json  # Options: json, sqlite, mysql
+  type: sqlite  # Options: json, sqlite, mysql
   json:
     path: "data/licenses.json"
   sqlite:

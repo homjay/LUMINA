@@ -139,3 +139,138 @@ async def delete_license(key: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+# API Key Management Endpoints
+
+@router.post("/apikeys", dependencies=[Depends(verify_admin_token)])
+async def create_api_key(name: str = None, expires: str = None):
+    """Create a new API key for long-term access.
+
+    Requires admin authentication.
+    """
+    try:
+        import secrets
+        import string
+        from datetime import datetime, timedelta
+
+        # Generate secure random API key
+        api_key = 'lumina_' + ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
+
+        # Parse expiration
+        expires_at = None
+        if expires:
+            if expires.endswith('d'):
+                days = int(expires[:-1])
+                expires_at = (datetime.now() + timedelta(days=days)).isoformat()
+            elif expires.endswith('y'):
+                years = int(expires[:-1])
+                expires_at = (datetime.now() + timedelta(days=years*365)).isoformat()
+            else:
+                # Try to parse as date
+                try:
+                    expires_at = datetime.strptime(expires, "%Y-%m-%d").isoformat()
+                except:
+                    raise HTTPException(status_code=400, detail="Invalid expiration format. Use: 30d, 1y, or YYYY-MM-DD")
+
+        # Store in database
+        if settings.storage.type == "sqlite":
+            import sqlite3
+            from pathlib import Path
+            db_path = Path(settings.storage.sqlite_path)
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                INSERT INTO api_keys (key, name, expires_at)
+                VALUES (?, ?, ?)
+            """, (api_key, name, expires_at))
+
+            conn.commit()
+            conn.close()
+
+        return {
+            "key": api_key,
+            "name": name or "N/A",
+            "expires_at": expires_at,
+            "created_at": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/apikeys", dependencies=[Depends(verify_admin_token)])
+async def list_api_keys():
+    """List all API keys.
+
+    Requires admin authentication.
+    """
+    try:
+        import sqlite3
+        from pathlib import Path
+
+        if settings.storage.type != "sqlite":
+            raise HTTPException(status_code=400, detail="API keys only supported with SQLite storage")
+
+        db_path = Path(settings.storage.sqlite_path)
+        if not db_path.exists():
+            return {"api_keys": []}
+
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT id, key, name, created_at, expires_at, is_active
+            FROM api_keys
+            ORDER BY created_at DESC
+        """)
+
+        keys = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+
+        return {"api_keys": keys}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.delete("/apikeys/{key}", dependencies=[Depends(verify_admin_token)])
+async def delete_api_key(key: str):
+    """Delete an API key.
+
+    Requires admin authentication.
+    """
+    try:
+        import sqlite3
+        from pathlib import Path
+
+        if settings.storage.type != "sqlite":
+            raise HTTPException(status_code=400, detail="API keys only supported with SQLite storage")
+
+        db_path = Path(settings.storage.sqlite_path)
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute("DELETE FROM api_keys WHERE key = ?", (key,))
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            conn.close()
+            raise HTTPException(status_code=404, detail="API key not found")
+
+        conn.close()
+        return {"message": "API key deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
