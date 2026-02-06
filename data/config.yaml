@@ -10,7 +10,7 @@ app:
 
 # Storage configuration
 storage:
-  type: sqlite  # Options: json, sqlite, mysql
+  type: sqlite # Options: json, sqlite, mysql
   json:
     path: "data/licenses.json"
   sqlite:
@@ -28,8 +28,8 @@ storage:
 # See .env.example for required variables
 security:
   admin_username: "admin"
-  admin_password: ""  # Use ADMIN_PASSWORD env var
-  secret_key: ""  # Use SECRET_KEY env var
+  admin_password: "" # Use ADMIN_PASSWORD env var
+  secret_key: "" # Use SECRET_KEY env var
   algorithm: "HS256"
   access_token_expire_minutes: 60
 
