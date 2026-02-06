@@ -248,6 +248,23 @@ def get_settings() -> Settings:
     # Load configuration
     config_data = load_config()
 
+    # Merge app settings from environment variables
+    if "app" not in config_data:
+        config_data["app"] = {}
+
+    env_host = os.environ.get("APP_HOST")
+    env_port = os.environ.get("APP_PORT") or os.environ.get("PORT")
+
+    if env_host:
+        config_data["app"]["host"] = env_host
+    if env_port:
+        try:
+            config_data["app"]["port"] = int(env_port)
+        except ValueError:
+            logger.error(f"Invalid APP_PORT/PORT value: {env_port}")
+            import sys
+            sys.exit(1)
+
     # Merge environment variables with YAML config.
     # Environment variables (ADMIN_*) take precedence over YAML values.
     if "security" not in config_data:
