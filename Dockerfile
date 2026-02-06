@@ -43,7 +43,7 @@ RUN groupadd -r lumina && \
     useradd -r -g lumina -u ${UID} lumina
 
 # Create necessary directories
-RUN mkdir -p data logs
+RUN mkdir -p data/logs data/db data/json
 
 # Expose port
 EXPOSE 8000

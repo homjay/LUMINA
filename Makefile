@@ -29,6 +29,6 @@ docker-down:
 	docker-compose down
 
 clean:
-	rm -rf data/*.json data/*.db logs/*.log __pycache__ app/__pycache__
+	rm -rf data/json/*.json data/db/*.db data/logs/*.log __pycache__ app/__pycache__
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete

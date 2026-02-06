@@ -8,7 +8,6 @@ services:
       - "18001:18000"
     volumes:
       - ./data:/app/data
-      - ./logs:/app/logs
     env_file:
       - .env
     environment:

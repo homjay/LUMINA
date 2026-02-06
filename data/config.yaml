@@ -12,9 +12,9 @@ app:
 storage:
   type: sqlite # Options: json, sqlite, mysql
   json:
-    path: "data/licenses.json"
+    path: "data/json/licenses.json"
   sqlite:
-    path: "data/licenses.db"
+    path: "data/db/licenses.db"
   mysql:
     host: "localhost"
     port: 3306
@@ -42,7 +42,7 @@ rate_limit:
 logging:
   level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  file: "logs/license_server.log"
+  file: "data/logs/license_server.log"
   max_bytes: 10485760
   backup_count: 5
 

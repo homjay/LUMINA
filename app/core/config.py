@@ -41,8 +41,8 @@ class StorageConfig(BaseModel):
     """Storage configuration."""
 
     type: str = "json"  # json, sqlite, mysql
-    json_path: str = "data/licenses.json"
-    sqlite_path: str = "data/licenses.db"
+    json_path: str = "data/json/licenses.json"
+    sqlite_path: str = "data/db/licenses.db"
     mysql: MySQLConfig = Field(default_factory=MySQLConfig)
 
 
@@ -70,7 +70,7 @@ class LoggingConfig(BaseModel):
 
     level: str = "INFO"
     format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    file: str = "logs/license_server.log"
+    file: str = "data/logs/license_server.log"
     max_bytes: int = 10485760  # 10MB
     backup_count: int = 5
 
@@ -158,7 +158,7 @@ app:
 storage:
   type: json
   json:
-    path: "data/licenses.json"
+    path: "data/json/licenses.json"
 
 security:
   admin_username: "admin"
@@ -262,4 +262,6 @@ settings = get_settings()
 
 # Create necessary directories
 Path("data").mkdir(exist_ok=True)
-Path("logs").mkdir(exist_ok=True)
+Path("data/logs").mkdir(parents=True, exist_ok=True)
+Path("data/db").mkdir(parents=True, exist_ok=True)
+Path("data/json").mkdir(parents=True, exist_ok=True)

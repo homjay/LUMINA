@@ -9,7 +9,7 @@ Usage:
     python migrate_to_db.py [options]
 
 Options:
-    --source FILE        Source JSON file (default: data/licenses.json)
+    --source FILE        Source JSON file (default: data/json/licenses.json)
     --target TYPE       Target database type: sqlite or mysql (default: sqlite)
     --config FILE       Configuration file (default: config/config.yaml)
     --dry-run           Show what would be done without actually doing it
@@ -298,8 +298,8 @@ async def main():
 
     parser.add_argument(
         "--source",
-        default="data/licenses.json",
-        help="Source JSON file (default: data/licenses.json)",
+        default="data/json/licenses.json",
+        help="Source JSON file (default: data/json/licenses.json)",
     )
 
     parser.add_argument(
