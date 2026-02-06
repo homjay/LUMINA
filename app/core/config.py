@@ -248,11 +248,25 @@ def get_settings() -> Settings:
     # Load configuration
     config_data = load_config()
 
-    # Remove sensitive fields from config data to force reading from env vars
-    # This ensures passwords/secrets come from environment, not YAML files
-    if "security" in config_data:
-        config_data["security"].pop("admin_password", None)
-        config_data["security"].pop("secret_key", None)
+    # Merge environment variables with YAML config.
+    # Environment variables (ADMIN_*) take precedence over YAML values.
+    if "security" not in config_data:
+        config_data["security"] = {}
+
+    env_username = os.environ.get("ADMIN_USERNAME")
+    env_password = os.environ.get("ADMIN_PASSWORD")
+    env_secret = os.environ.get("SECRET_KEY")
+
+    if env_username:
+        config_data["security"]["admin_username"] = env_username
+    if env_password:
+        config_data["security"]["admin_password"] = env_password
+    if env_secret:
+        config_data["security"]["secret_key"] = env_secret
+
+    # Remove sensitive fields from YAML to avoid accidental use if env is missing.
+    config_data["security"].pop("admin_password", None)
+    config_data["security"].pop("secret_key", None)
 
     return Settings(**config_data)
 
