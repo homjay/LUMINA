@@ -62,7 +62,7 @@ class LUMINAClient:
             raise ValueError("Not authenticated")
 
         response = requests.get(
-            f"{self.base_url}/admin/license",
+            f"{self.base_url}/admin/licenses",
             headers={"Authorization": f"Bearer {self.token}"}
         )
         return response
