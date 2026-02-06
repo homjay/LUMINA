@@ -2,6 +2,8 @@
 from fastapi import APIRouter, HTTPException, Depends, Header
 from typing import Optional
 
+from loguru import logger
+
 from app.models.schemas import (
     License,
     LicenseCreate,
@@ -19,17 +21,21 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 async def verify_admin_token(authorization: Optional[str] = Header(None)) -> bool:
     """Verify admin authorization token."""
     if not authorization:
+        logger.warning("[AUTH] Missing authorization header")
         raise HTTPException(status_code=401, detail="Missing authorization header")
 
     if not authorization.startswith("Bearer "):
+        logger.warning("[AUTH] Invalid authorization format")
         raise HTTPException(status_code=401, detail="Invalid authorization format")
 
     token = authorization[7:]  # Remove "Bearer " prefix
     is_valid = await auth_service.verify_token(token)
 
     if not is_valid:
+        logger.warning("[AUTH] Invalid or expired token")
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
+    logger.debug("[AUTH] Token verified successfully")
     return True
 
 
@@ -40,16 +46,20 @@ async def login(login_data: AdminLogin):
     Returns a JWT token that must be used in subsequent admin requests.
     """
     try:
+        logger.info(f"[AUTH] Login attempt for user: {login_data.username}")
         token = await auth_service.authenticate(login_data.username, login_data.password)
 
         if not token:
+            logger.warning(f"[AUTH] Failed login attempt for user: {login_data.username}")
             raise HTTPException(status_code=401, detail="Invalid username or password")
 
+        logger.info(f"[AUTH] Successful login for user: {login_data.username}")
         return AdminToken(access_token=token)
 
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"[AUTH] Login error: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 

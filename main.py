@@ -1,10 +1,7 @@
 """Main application entry point for LUMINA.
 License Unified Management & Identity Network Authorization"""
 
-import logging
-import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,13 +10,12 @@ from fastapi.responses import JSONResponse
 import uvicorn
 
 from app.core.config import settings
-from app.core.logging import setup_logging
+from app.core.logging import setup_logging, logger
 from app.api.v1 import licenses, admin, health
 from app.storage.factory import storage
 
 # Setup logging
 setup_logging()
-logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -99,6 +95,7 @@ def main():
         port=settings.app.port,
         reload=settings.app.debug,
         log_level=settings.logging.level.lower(),
+        access_log=False,  # Disable HTTP access logs to see application logs better
     )
 
 

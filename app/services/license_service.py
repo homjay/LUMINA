@@ -2,6 +2,8 @@
 from datetime import datetime
 from typing import Optional
 
+from loguru import logger
+
 from app.models.schemas import (
     License,
     LicenseVerifyRequest,
@@ -35,10 +37,13 @@ class LicenseService:
         Returns:
             Verification response
         """
+        logger.info(f"[LICENSE_VERIFY] Starting verification for key: {request.license_key[:10]}... from IP: {client_ip}")
+
         # Get license
         license_data = await storage.get_license(request.license_key)
 
         if not license_data:
+            logger.warning(f"[LICENSE_VERIFY] License key not found: {request.license_key[:10]}...")
             return LicenseVerifyResponse(
                 valid=False,
                 message="Invalid license key"
@@ -46,6 +51,7 @@ class LicenseService:
 
         # Check if license is active
         if license_data.status != "active":
+            logger.warning(f"[LICENSE_VERIFY] License {request.license_key[:10]}... status is: {license_data.status}")
             return LicenseVerifyResponse(
                 valid=False,
                 message=f"License is {license_data.status}"
@@ -53,6 +59,7 @@ class LicenseService:
 
         # Check expiry
         if is_license_expired(license_data.expiry_date):
+            logger.warning(f"[LICENSE_VERIFY] License {request.license_key[:10]}... expired on: {license_data.expiry_date}")
             return LicenseVerifyResponse(
                 valid=False,
                 message="License has expired"
@@ -88,7 +95,9 @@ class LicenseService:
         # Check if max activations reached
         if not activation_exists:
             current_count = await storage.get_activations_count(request.license_key)
+            logger.info(f"[LICENSE_VERIFY] New activation request. Current: {current_count}/{license_data.max_activations}")
             if current_count >= license_data.max_activations:
+                logger.warning(f"[LICENSE_VERIFY] License {request.license_key[:10]}... max activations reached: {current_count}")
                 return LicenseVerifyResponse(
                     valid=False,
                     message="Maximum activations reached"
@@ -100,6 +109,7 @@ class LicenseService:
                 request.machine_code,
                 client_ip
             )
+            logger.info(f"[LICENSE_VERIFY] New activation added for {request.license_key[:10]}... IP: {client_ip}, Machine: {request.machine_code[:10] if request.machine_code else 'N/A'}...")
         else:
             # Update existing verification
             await storage.update_verification(
@@ -107,10 +117,13 @@ class LicenseService:
                 request.machine_code,
                 client_ip
             )
+            logger.info(f"[LICENSE_VERIFY] Updated existing verification for {request.license_key[:10]}...")
 
         # Refresh license data
         license_data = await storage.get_license(request.license_key)
         remaining = license_data.max_activations - len(license_data.activations)
+
+        logger.info(f"[LICENSE_VERIFY] SUCCESS - {request.license_key[:10]}... Product: {license_data.product}, Remaining: {remaining}")
 
         return LicenseVerifyResponse(
             valid=True,
@@ -129,12 +142,17 @@ class LicenseService:
         Returns:
             Created license
         """
+        logger.info(f"[LICENSE_CREATE] Creating new license - Product: {license_data.product}, Customer: {license_data.customer}, Max activations: {license_data.max_activations}")
+
         # Validate IP whitelist
         if license_data.ip_whitelist:
             if not validate_ip_whitelist(license_data.ip_whitelist):
+                logger.error(f"[LICENSE_CREATE] Invalid IP whitelist provided")
                 raise ValueError("Invalid IP address in whitelist")
 
-        return await storage.create_license(license_data)
+        result = await storage.create_license(license_data)
+        logger.info(f"[LICENSE_CREATE] SUCCESS - License key: {result.key[:10]}... created for {license_data.product}")
+        return result
 
     async def get_license(self, key: str) -> Optional[License]:
         """Get a license by key.
@@ -145,6 +163,7 @@ class LicenseService:
         Returns:
             License data or None
         """
+        logger.debug(f"[LICENSE_GET] Fetching license: {key[:10]}...")
         return await storage.get_license(key)
 
     async def get_all_licenses(self) -> list[License]:
@@ -153,7 +172,9 @@ class LicenseService:
         Returns:
             List of all licenses
         """
-        return await storage.get_all_licenses()
+        licenses = await storage.get_all_licenses()
+        logger.info(f"[LICENSE_LIST] Retrieved {len(licenses)} licenses")
+        return licenses
 
     async def update_license(self, key: str, license_data: LicenseUpdate) -> Optional[License]:
         """Update a license.
@@ -165,12 +186,20 @@ class LicenseService:
         Returns:
             Updated license or None
         """
+        logger.info(f"[LICENSE_UPDATE] Updating license: {key[:10]}...")
+
         # Validate IP whitelist if provided
         if license_data.ip_whitelist is not None:
             if not validate_ip_whitelist(license_data.ip_whitelist):
+                logger.error(f"[LICENSE_UPDATE] Invalid IP whitelist provided")
                 raise ValueError("Invalid IP address in whitelist")
 
-        return await storage.update_license(key, license_data)
+        result = await storage.update_license(key, license_data)
+        if result:
+            logger.info(f"[LICENSE_UPDATE] SUCCESS - License {key[:10]}... updated")
+        else:
+            logger.warning(f"[LICENSE_UPDATE] License {key[:10]}... not found")
+        return result
 
     async def delete_license(self, key: str) -> bool:
         """Delete a license.
@@ -181,7 +210,13 @@ class LicenseService:
         Returns:
             True if deleted, False otherwise
         """
-        return await storage.delete_license(key)
+        logger.info(f"[LICENSE_DELETE] Deleting license: {key[:10]}...")
+        result = await storage.delete_license(key)
+        if result:
+            logger.info(f"[LICENSE_DELETE] SUCCESS - License {key[:10]}... deleted")
+        else:
+            logger.warning(f"[LICENSE_DELETE] License {key[:10]}... not found")
+        return result
 
 
 # Global service instance
