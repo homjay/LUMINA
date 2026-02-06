@@ -3,8 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        UID: ${UID:-1000}
     container_name: lumina
     ports:
       - "18001:18000"
