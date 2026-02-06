@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: lumina
     ports:
-      - "18001:18000"
+      - "18000:18000"
     volumes:
       - ./data:/app/data
     env_file:
